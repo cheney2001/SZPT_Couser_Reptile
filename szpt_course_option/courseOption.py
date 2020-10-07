@@ -70,11 +70,10 @@ class CourseOptions:
         data['txtLogin'] = username
         data['txtPwd'] = password
         data['CodeNumberTextBox'] = self._getVerifyCode()
-        print(data['CodeNumberTextBox'])
+        # print(data['CodeNumberTextBox'])
         headers = self._getHeaders(Referer=self._login_url)
         response = self._session.post(url=self._login_url, data=data, headers=headers, allow_redirects=False)
         if response.status_code == 302:
-
             self._cookie.update(response.cookies.get_dict())
             headers = self._getHeaders(Referer=self._ref_url)
             response = self._session.get(self._ref_url, headers=headers)

@@ -1,6 +1,8 @@
 from aip import *
 from PIL import Image, ImageDraw
+import numpy as np
 import io
+from queue import Queue
 
 
 class VerifyCode:
@@ -35,55 +37,43 @@ class VerifyCode:
 
         photo = img.point(table, '1')
         photo.show()
-        img_bytes = io.BytesIO()
-        photo.save(img_bytes, format='PNG')
-        img_bytes = img_bytes.getvalue()
-        return img_bytes  # type : bytes
+        # img_bytes = io.BytesIO()
+        # photo.save(img_bytes, format='PNG')
+        # img_bytes = img_bytes.getvalue()
+        # return img_bytes  # type : bytes
+        return photo
+
+    class node:
+        def __init__(self, x=0, y=0, num=0):
+            self.x = x
+            self.y = y
+            self.num = num
+
+        def getX(self):
+            return self.x
+
+        def getY(self):
+            return self.y
+
+        def getNum(self):
+            return self.num
 
     @staticmethod
-    def get_pixel(image, x, y, G, N):
-        # 获取像素值
-        L = image.getpixel((x, y))
-
-        # 与阈值比较
-        if L > G:
-            L = True
-        else:
-            L = False
-
-        nearDots = 0
-
-        if L == (image.getpixel((x - 1, y - 1)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x - 1, y)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x - 1, y + 1)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x, y - 1)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x, y + 1)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x + 1, y - 1)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x + 1, y)) > G):
-            nearDots += 1
-        if L == (image.getpixel((x + 1, y + 1)) > G):
-            nearDots += 1
-
-        if nearDots < N:
-            return image.getpixel((x, y - 1))
-        else:
-            return None
-
-    # 降噪
-    # Z: 降噪次数
+    def clearNoise(image):
+        img_arr = np.array(image)
+        rows, cols = img_arr.shape
+        print("{},{}".format(rows, cols))
+        """
+        创建一个记录图，绘制黑像素某个区域最大像素数量
+        """
+        record = []
+        map = [[0 for c in range(0, cols)] for r in range(0, rows)]
+        for row in range(0, rows):
+            for col in range(0, cols):
+                if img_arr[row][col] is False:
+                    pass
     @staticmethod
-    def clear_noise(image, G, N, Z):
-        draw = ImageDraw.Draw(image)
-
-        for i in range(0, Z):
-            for x in range(1, image.size[0] - 1):
-                for y in range(1, image.size[1] - 1):
-                    color = VerifyCode.get_pixel(image, x, y, G, N)
-                    if color is not None:
-                        draw.point((x, y), color)
+    def searchMap(img_arr, row, col, target=False):
+        dy = [1, -1, 0, 0, -1, 1, -1, 1]
+        dx = [0, 0, -1, 1, -1, 1, 1, -1]
+        queue = Queue(maxsize=0)
