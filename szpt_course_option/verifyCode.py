@@ -1,8 +1,24 @@
 from aip import *
-from PIL import Image, ImageDraw
+from PIL import Image
 import numpy as np
 import io
 from queue import Queue
+
+
+class node:
+    def __init__(self, x=0, y=0, num=0):
+        self.x = x
+        self.y = y
+        self.num = num
+
+    def getX(self):
+        return self.x
+
+    def getY(self):
+        return self.y
+
+    def getNum(self):
+        return self.num
 
 
 class VerifyCode:
@@ -43,21 +59,6 @@ class VerifyCode:
         # return img_bytes  # type : bytes
         return photo
 
-    class node:
-        def __init__(self, x=0, y=0, num=0):
-            self.x = x
-            self.y = y
-            self.num = num
-
-        def getX(self):
-            return self.x
-
-        def getY(self):
-            return self.y
-
-        def getNum(self):
-            return self.num
-
     @staticmethod
     def clearNoise(image):
         img_arr = np.array(image)
@@ -72,8 +73,13 @@ class VerifyCode:
             for col in range(0, cols):
                 if img_arr[row][col] is False:
                     pass
+
     @staticmethod
     def searchMap(img_arr, row, col, target=False):
         dy = [1, -1, 0, 0, -1, 1, -1, 1]
         dx = [0, 0, -1, 1, -1, 1, 1, -1]
         queue = Queue(maxsize=0)
+        node(x=row, y=col)
+        queue.put(node)
+        while queue.empty() is False:
+            pass
