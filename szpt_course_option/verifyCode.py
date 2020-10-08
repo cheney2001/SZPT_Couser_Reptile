@@ -1,5 +1,6 @@
 from aip import *
-from PIL import Image, ImageDraw
+from PIL import Image
+from functools import cmp_to_key
 import numpy as np
 import io
 from queue import Queue
@@ -7,6 +8,12 @@ from queue import Queue
 
 class node:
     def __init__(self, x=0, y=0, num=0):
+        """
+        坐标类
+        :param x:
+        :param y:
+        :param num:
+        """
         self.x = x
         self.y = y
         self.num = num
@@ -19,6 +26,15 @@ class node:
 
     def getNum(self):
         return self.num
+
+    @staticmethod
+    def sortNodeList(first, second):
+        if first.getNum() > second.getNum():
+            return 1
+        elif first.getNum() < second.getNum():
+            return -1
+        else:
+            return 0
 
 
 class VerifyCode:
@@ -60,10 +76,11 @@ class VerifyCode:
         return photo
 
     @staticmethod
-    def clearNoise(image):
+    def clearNoise(image, max_noise_size):
         """
         清理图像噪点
         :param image: PIL Image
+        :param max_noise_size 最大同像素区块数量（降噪值）
         :return: PIL Image
         """
         img_arr = np.array(image)
@@ -78,6 +95,29 @@ class VerifyCode:
                 if img_arr[row][col] is False and map[row][col] == 0:
                     max_point, map = VerifyCode.searchMap(img_arr, row, col, map=map)
                     record.append(max_point)
+        record.sort(key=cmp_to_key(node.sortNodeList), reverse=True)
+
+    @staticmethod
+    def readerNoise(img_arr, node, value=True):
+        """
+        渲染噪点所在位置相同颜色色块
+        :param img_arr: np array
+        :param node: node point object
+        :param value: 渲染的值
+        :return: np array
+        """
+        dy = [1, -1, 0, 0, -1, 1, -1, 1]
+        dx = [0, 0, -1, 1, -1, 1, 1, -1]
+        queue = Queue(maxsize=0)
+        queue.put(node)
+        rows, cols = img_arr.shape
+        while queue.empty() is False:
+            cur = queue.get()
+            img_arr[cur.getX()][cur.getY()] = value
+            for i in range(0, 8):
+                x = cur.getX() + dx[i]
+                y = cur.getY() + dy[i]
+                
 
     @staticmethod
     def searchMap(img_arr, row, col, target=False, map=None):
