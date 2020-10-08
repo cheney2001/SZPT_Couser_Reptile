@@ -1,5 +1,5 @@
 from aip import *
-from PIL import Image
+from PIL import Image, ImageDraw
 import numpy as np
 import io
 from queue import Queue
@@ -61,25 +61,53 @@ class VerifyCode:
 
     @staticmethod
     def clearNoise(image):
+        """
+        清理图像噪点
+        :param image: PIL Image
+        :return: PIL Image
+        """
         img_arr = np.array(image)
         rows, cols = img_arr.shape
         print("{},{}".format(rows, cols))
-        """
-        创建一个记录图，绘制黑像素某个区域最大像素数量
-        """
+        # record 将记录拥有黑色像素块最大值的位置
         record = []
+        # map 将记录已经遍历的像素点
         map = [[0 for c in range(0, cols)] for r in range(0, rows)]
         for row in range(0, rows):
             for col in range(0, cols):
-                if img_arr[row][col] is False:
-                    pass
+                if img_arr[row][col] is False and map[row][col] == 0:
+                    max_point, map = VerifyCode.searchMap(img_arr, row, col, map=map)
+                    record.append(max_point)
 
     @staticmethod
-    def searchMap(img_arr, row, col, target=False):
+    def searchMap(img_arr, row, col, target=False, map=None):
+        """
+        计数 (row,col) 坐标所在位置黑色像素所占区域面积，
+        返回node 类型，其有最大值坐标与最大值
+        :param img_arr: np array
+        :param row: x point
+        :param col: y point
+        :param target: search value type
+        :param map: 已进行遍历的位置记录
+        :return: node object , map
+        """
         dy = [1, -1, 0, 0, -1, 1, -1, 1]
         dx = [0, 0, -1, 1, -1, 1, 1, -1]
+        rows, cols = img_arr.shape
+        if map is None:
+            map = [[0 for c in range(0, cols)] for r in range(0, rows)]
         queue = Queue(maxsize=0)
-        node(x=row, y=col)
-        queue.put(node)
+        queue.put(node(x=row, y=col))
+        max_point = node(num=0)
         while queue.empty() is False:
-            pass
+            cur = queue.get()
+            map[cur.getX()][cur.getY()] = 1
+            if cur.getNum() > max_point.getNum():
+                max_point = cur
+            for i in range(0, 8):
+                x = cur.getX() + dx[i]
+                y = cur.getY() + dy[i]
+                if x >= 0 and x < rows and y >= 0 and y < cols \
+                        and img_arr[x][y] is target and map[x][y] == 0:
+                    queue.put(node(x=0, y=0, num=cur.getNum() + 1))
+        return (max_point, map)
