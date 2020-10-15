@@ -1,9 +1,7 @@
 from aip import *
-from PIL import Image
-from functools import cmp_to_key
+import cv2
 import numpy as np
-import io
-from queue import Queue
+import matplotlib.pyplot as plt
 
 
 class node:
@@ -27,6 +25,12 @@ class node:
     def getNum(self):
         return self.num
 
+    def __eq__(self, other):
+        return other.x == self.x and other.y == self.y
+
+    def __hash__(self):
+        return hash("{}/{}".format(self.x, self.y))
+
     @staticmethod
     def sortNodeList(first, second):
         if first.getNum() > second.getNum():
@@ -44,110 +48,179 @@ class VerifyCode:
 
     @staticmethod
     def verify_number(image):
+        """
+        通过百度开放平台识别图片中数字
+        :param image: image bytes
+        :return: verify str
+        """
         client = AipOcr(VerifyCode.APP_ID, VerifyCode.API_KEY, VerifyCode.Secret_Key)
         result = client.basicGeneral(image)
+        print(result["words_result"])
         return result["words_result"][0]['words']
 
     @staticmethod
-    def processing_image(img: bytes):
+    def handlerImage(img) -> bytes:
+        """
+        将图片进行二值化，并为其降噪生成用于合适OCR的Bytes Image
+        :param img: img
+        :return: img bytes
+        """
+        img = VerifyCode._processing_image(img)
+        img = VerifyCode._around_white(img, width=20, height=80)
+        img = VerifyCode._operate_img(img, 4)
+        w, h, s = img.shape
+        map = [[0 for c in range(h)] for r in range(w)]
+        points = []
+        for _w in range(w):
+            for _h in range(h):
+                if all(img[_w, _h] == [0, 0, 0]) and map[_w][_h] == 0:
+                    point, map = VerifyCode._searchMap(img, _w, _h, map)
+                    points.append(point)
+        for p in points:
+            # 区域黑色像素最大值，小于该值的区域视为噪点
+            if p.getNum() <= 50:
+                img = VerifyCode._readerNoise(img, p)
+        img_bytes = VerifyCode._cv2ImageToBytes(img)
+        return img_bytes
+
+    @staticmethod
+    def _cv2ImageToBytes(img) -> bytes:
+        """
+        将cv2图片转换为bytes
+        :param img:
+        :return:
+        """
+        success, encoded_image = cv2.imencode(".png", img)
+        img_bytes = encoded_image.tostring()
+        return img_bytes
+
+    @staticmethod
+    def _processing_image(img: bytes):
         """
         将图像二值化
         :param img:
         :return:
         """
-        stream = io.BytesIO(img)
-        img = Image.open(stream)
-        img = img.convert('L')
-        # 阀值
-        threshold = 229
-        table = []
-        for i in range(256):
-            if i < threshold:
-                table.append(0)
-            else:
-                table.append(1)
-
-        photo = img.point(table, '1')
-        photo.show()
-        # img_bytes = io.BytesIO()
-        # photo.save(img_bytes, format='PNG')
-        # img_bytes = img_bytes.getvalue()
-        # return img_bytes  # type : bytes
-        return photo
+        img = cv2.imdecode(np.frombuffer(img, np.uint8), cv2.IMREAD_COLOR)
+        ret, img = cv2.threshold(img, 226, 255, cv2.THRESH_BINARY)
+        return img
 
     @staticmethod
-    def clearNoise(image, max_noise_size):
-        """
-        清理图像噪点
-        :param image: PIL Image
-        :param max_noise_size 最大同像素区块数量（降噪值）
-        :return: PIL Image
-        """
-        img_arr = np.array(image)
-        rows, cols = img_arr.shape
-        print("{},{}".format(rows, cols))
-        # record 将记录拥有黑色像素块最大值的位置
-        record = []
-        # map 将记录已经遍历的像素点
-        map = [[0 for c in range(0, cols)] for r in range(0, rows)]
-        for row in range(0, rows):
-            for col in range(0, cols):
-                if img_arr[row][col] is False and map[row][col] == 0:
-                    max_point, map = VerifyCode.searchMap(img_arr, row, col, map=map)
-                    record.append(max_point)
-        record.sort(key=cmp_to_key(node.sortNodeList), reverse=True)
-
-    @staticmethod
-    def readerNoise(img_arr, node, value=True):
-        """
-        渲染噪点所在位置相同颜色色块
-        :param img_arr: np array
-        :param node: node point object
-        :param value: 渲染的值
-        :return: np array
-        """
-        dy = [1, -1, 0, 0, -1, 1, -1, 1]
-        dx = [0, 0, -1, 1, -1, 1, 1, -1]
-        queue = Queue(maxsize=0)
-        queue.put(node)
-        rows, cols = img_arr.shape
-        while queue.empty() is False:
-            cur = queue.get()
-            img_arr[cur.getX()][cur.getY()] = value
-            for i in range(0, 8):
-                x = cur.getX() + dx[i]
-                y = cur.getY() + dy[i]
-                
-
-    @staticmethod
-    def searchMap(img_arr, row, col, target=False, map=None):
+    def _searchMap(img, row, col, map, target=[0, 0, 0]):
         """
         计数 (row,col) 坐标所在位置黑色像素所占区域面积，
         返回node 类型，其有最大值坐标与最大值
-        :param img_arr: np array
+        :param img_arr: cv2
         :param row: x point
         :param col: y point
         :param target: search value type
         :param map: 已进行遍历的位置记录
         :return: node object , map
         """
-        dy = [1, -1, 0, 0, -1, 1, -1, 1]
-        dx = [0, 0, -1, 1, -1, 1, 1, -1]
-        rows, cols = img_arr.shape
-        if map is None:
-            map = [[0 for c in range(0, cols)] for r in range(0, rows)]
-        queue = Queue(maxsize=0)
-        queue.put(node(x=row, y=col))
+        dxy = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+        rows, cols, s = img.shape
         max_point = node(num=0)
-        while queue.empty() is False:
-            cur = queue.get()
-            map[cur.getX()][cur.getY()] = 1
-            if cur.getNum() > max_point.getNum():
-                max_point = cur
-            for i in range(0, 8):
-                x = cur.getX() + dx[i]
-                y = cur.getY() + dy[i]
-                if x >= 0 and x < rows and y >= 0 and y < cols \
-                        and img_arr[x][y] is target and map[x][y] == 0:
-                    queue.put(node(x=0, y=0, num=cur.getNum() + 1))
+        queue = [node(row, col, num=1)]
+        seen = set()
+        while len(queue) != 0:
+            front = queue.pop(0)
+            map[front.getX()][front.getY()] = 1
+            if front in seen:
+                continue
+            if front.getNum() > max_point.getNum():
+                max_point = front
+            seen.add(front)
+            for i in range(len(dxy)):
+                x = front.getX() + dxy[i][0]
+                y = front.getY() + dxy[i][1]
+                if x >= 0 and x < rows and y >= 0 and y < cols and all(
+                        img[x][y] == target):
+                    if node(x=x, y=y) in seen:
+                        continue
+                    queue.append(node(x=x, y=y, num=front.getNum() + 1))
         return (max_point, map)
+
+    @staticmethod
+    def _readerNoise(img, point: node):
+        """
+        渲染噪点所在领域全部黑色像素为白色
+        :param img: cv2 image
+        :param point: 噪点所在位置
+        :return: cv2 image
+        """
+        dxy = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+        rows, cols, s = img.shape
+        queue = [point]
+        seen = set()
+        while len(queue) != 0:
+            front = queue.pop(0)
+            if front in seen:
+                continue
+            if all(img[front.getX()][front.getY()] == [0, 0, 0]):
+                img.itemset((front.getX(), front.getY(), 0), 255)
+                img.itemset((front.getX(), front.getY(), 1), 255)
+                img.itemset((front.getX(), front.getY(), 2), 255)
+            seen.add(front)
+            for i in range(len(dxy)):
+                x = front.getX() + dxy[i][0]
+                y = front.getY() + dxy[i][1]
+                if x >= 0 and x < rows and y >= 0 and y < cols and all(
+                        img[x][y] == [0, 0, 0]):
+                    if node(x=x, y=y) in seen:
+                        continue
+                    queue.append(node(x=x, y=y, num=front.getNum() + 1))
+        return img
+
+    @staticmethod
+    # 计算邻域非白色个数
+    def _calculate_noise_count(img_obj, w, h):
+        """
+        计算邻域非白色的个数
+        Args:
+            img_obj: img obj
+            w: width
+            h: height
+        Returns:
+            count (int)
+        """
+        count = 0
+        width, height, s = img_obj.shape
+        for _w_ in [w - 1, w, w + 1]:
+            for _h_ in [h - 1, h, h + 1]:
+                if _w_ > width - 1:
+                    continue
+                if _h_ > height - 1:
+                    continue
+                if _w_ == w and _h_ == h:
+                    continue
+                if (img_obj[_w_, _h_, 0] < 233) or (img_obj[_w_, _h_, 1] < 233) or (img_obj[_w_, _h_, 2] < 233):
+                    count += 1
+        return count
+
+    @staticmethod
+    # k邻域降噪
+    def _operate_img(img, k):
+        w, h, s = img.shape
+        # 从高度开始遍历
+        for _w in range(w):
+            # 遍历宽度
+            for _h in range(h):
+                if _h != 0 and _w != 0 and _w < w - 1 and _h < h - 1:
+                    if VerifyCode._calculate_noise_count(img, _w, _h) < k:
+                        img.itemset((_w, _h, 0), 255)
+                        img.itemset((_w, _h, 1), 255)
+                        img.itemset((_w, _h, 2), 255)
+
+        return img
+
+    @staticmethod
+    # 四周置白色
+    def _around_white(img, width: int, height: int):
+        w, h, s = img.shape
+        for _w in range(w):
+            for _h in range(h):
+                if (_w <= width) or (_h <= height) or (_w >= w - width) or (_h >= h - height):
+                    img.itemset((_w, _h, 0), 255)
+                    img.itemset((_w, _h, 1), 255)
+                    img.itemset((_w, _h, 2), 255)
+        return img
