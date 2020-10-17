@@ -2,6 +2,8 @@ from aip import *
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import requests
+import base64
 
 
 class node:
@@ -46,6 +48,9 @@ class VerifyCode:
     API_KEY = "3uCM2HafGbKma7DIQgAkIzVB"
     Secret_Key = "XkrS0153qKY3PmETZN9KmbIQAeQgf9b0"
 
+    REQUEST_URL = "https://aip.baidubce.com/rest/2.0/ocr/v1/numbers"
+    GET_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
+
     @staticmethod
     def verify_number(image):
         """
@@ -54,9 +59,21 @@ class VerifyCode:
         :return: verify str
         """
         client = AipOcr(VerifyCode.APP_ID, VerifyCode.API_KEY, VerifyCode.Secret_Key)
+
         result = client.basicGeneral(image)
         print(result["words_result"])
         return result["words_result"][0]['words']
+
+    @staticmethod
+    def Verify_number_precision(image: bytes):
+        img = base64.b64encode(image)
+        params = {"image": img}
+        access_token = VerifyCode._getToken()
+        request_url = VerifyCode.REQUEST_URL + "?access_token=" + access_token
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+        response = requests.post(request_url, data=params, headers=headers)
+        print(response)
+        return response.json()["words_result"][0]["words"]
 
     @staticmethod
     def handlerImage(img) -> bytes:
@@ -82,6 +99,14 @@ class VerifyCode:
                 img = VerifyCode._readerNoise(img, p)
         img_bytes = VerifyCode._cv2ImageToBytes(img)
         return img_bytes
+
+    @staticmethod
+    def _getToken():
+        url = "{}?grant_type=client_credentials&client_id={}&client_secret={}".format(VerifyCode.GET_TOKEN_URL,
+                                                                                      VerifyCode.API_KEY,
+                                                                                      VerifyCode.Secret_Key)
+        response = requests.get(url)
+        return response.json()["access_token"]
 
     @staticmethod
     def _cv2ImageToBytes(img) -> bytes:
