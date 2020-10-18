@@ -162,12 +162,10 @@ if __name__ == "__main__":
     # img_bytes = VerifyCode._cv2ImageToBytes(img)
     # result = VerifyCode.verify_number(img_bytes)
     # print(result)
-    with open('/Users/cheney/Desktop/test1.png', 'rb') as f:
+    with open('/Users/cheney/Desktop/test4.png', 'rb') as f:
         img = f.read()
 
     img = VerifyCode.handlerImage(img)
     image = Image.open(io.BytesIO(img))
     image.show()
-    # plt.imshow(image)
-    # plt.show()
-    # print(VerifyCode.Verify_number_precision(img))
+    print(VerifyCode.Verify_number_precision(img))

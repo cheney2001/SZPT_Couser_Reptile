@@ -72,7 +72,6 @@ class VerifyCode:
         request_url = VerifyCode.REQUEST_URL + "?access_token=" + access_token
         headers = {'content-type': 'application/x-www-form-urlencoded'}
         response = requests.post(request_url, data=params, headers=headers)
-        print(response)
         return response.json()["words_result"][0]["words"]
 
     @staticmethod
@@ -83,7 +82,7 @@ class VerifyCode:
         :return: img bytes
         """
         img = VerifyCode._processing_image(img)
-        img = VerifyCode._around_white(img, width=20, height=80)
+        img = VerifyCode._around_white(img, width_pre=0.15, height_pre=0.15)
         img = VerifyCode._operate_img(img, 4)
         w, h, s = img.shape
         map = [[0 for c in range(h)] for r in range(w)]
@@ -95,7 +94,7 @@ class VerifyCode:
                     points.append(point)
         for p in points:
             # 区域黑色像素最大值，小于该值的区域视为噪点
-            if p.getNum() <= 50:
+            if p.getNum() <= 15:
                 img = VerifyCode._readerNoise(img, p)
         img_bytes = VerifyCode._cv2ImageToBytes(img)
         return img_bytes
@@ -127,7 +126,7 @@ class VerifyCode:
         :return:
         """
         img = cv2.imdecode(np.frombuffer(img, np.uint8), cv2.IMREAD_COLOR)
-        ret, img = cv2.threshold(img, 226, 255, cv2.THRESH_BINARY)
+        ret, img = cv2.threshold(img, 235, 255, cv2.THRESH_BINARY)
         return img
 
     @staticmethod
@@ -240,11 +239,12 @@ class VerifyCode:
 
     @staticmethod
     # 四周置白色
-    def _around_white(img, width: int, height: int):
+    def _around_white(img, width_pre: float, height_pre: float):
         w, h, s = img.shape
         for _w in range(w):
             for _h in range(h):
-                if (_w <= width) or (_h <= height) or (_w >= w - width) or (_h >= h - height):
+                if (_w <= w * width_pre) or (_h <= h * height_pre) or (_w >= w - w * width_pre) or (
+                        _h >= h - h * height_pre):
                     img.itemset((_w, _h, 0), 255)
                     img.itemset((_w, _h, 1), 255)
                     img.itemset((_w, _h, 2), 255)
