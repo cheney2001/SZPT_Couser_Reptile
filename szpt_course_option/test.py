@@ -136,36 +136,15 @@ def searchMap(img_arr, row, col, map, target=[0, 0, 0]):
 
 
 if __name__ == "__main__":
-    # img = cv2.imread('/Users/cheney/Desktop/test1.png')
-    # ret, img = cv2.threshold(img, 226, 255, cv2.THRESH_BINARY)
-    # plt.imshow(img)
-    # plt.show()
-    #
-    # img = around_white(img, width=20, height=80)
-    # plt.imshow(img)
-    # plt.show()
-    # img = operate_img(img, 4)
-    # w, h, s = img.shape
-    # map = [[0 for c in range(h)] for r in range(w)]
-    # rec = []
-    # for _w in range(w):
-    #     for _h in range(h):
-    #         if all(img[_w, _h] == [0, 0, 0]) and map[_w][_h] == 0:
-    #             point, map = searchMap(img, _w, _h, map)
-    #             rec.append(point)
-    # for p in rec:
-    #     if p.getNum() <= 50:
-    #         img = readerNoise(img, p)
-    # plt.imshow(img)
-    # plt.show()
-    #
-    # img_bytes = VerifyCode._cv2ImageToBytes(img)
-    # result = VerifyCode.verify_number(img_bytes)
-    # print(result)
-    with open('/Users/cheney/Desktop/test4.png', 'rb') as f:
-        img = f.read()
-
-    img = VerifyCode.handlerImage(img)
-    image = Image.open(io.BytesIO(img))
-    image.show()
-    print(VerifyCode.Verify_number_precision(img))
+#     with open('/Users/cheney/Desktop/test4.png', 'rb') as f:
+#         img = f.read()
+#
+#     img = VerifyCode.handlerImage(img)
+#     image = Image.open(io.BytesIO(img))
+#     image.show()
+#     print(VerifyCode.Verify_number_precision(img))
+#
+    course = CourseOptions()
+    course.login("19240308","zse55667788")
+    option_course = course.getOptionsCourse()
+    print(option_course)

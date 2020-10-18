@@ -72,6 +72,7 @@ class VerifyCode:
         request_url = VerifyCode.REQUEST_URL + "?access_token=" + access_token
         headers = {'content-type': 'application/x-www-form-urlencoded'}
         response = requests.post(request_url, data=params, headers=headers)
+        print(response.json())
         return response.json()["words_result"][0]["words"]
 
     @staticmethod

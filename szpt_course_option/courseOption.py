@@ -1,8 +1,10 @@
 import collections
 import requests
 import time
+import io
 from lxml import etree
 from .verifyCode import VerifyCode
+from PIL import Image
 
 base_url = "http://jwgl.szpt.edu.cn/szptjwbsII/RandSchedule.aspx"
 tree = lambda: collections.defaultdict(tree)
@@ -55,7 +57,12 @@ class CourseOptions:
 
     def _getVerifyCode(self):
         pic_content = self._session.get(self._verify_url).content
-        return VerifyCode.verify_number(pic_content)
+        img = VerifyCode.handlerImage(pic_content)
+        image = Image.open(io.BytesIO(img))
+        image.show()
+        verify_code = VerifyCode.Verify_number_precision(img)
+        print(verify_code)
+        return verify_code
 
     def login(self, username, password):
         """
@@ -113,7 +120,6 @@ class CourseOptions:
         for key in self._cookie.keys():
             cookie += '{0}={1};'.format(key, self._cookie[key])
         headers["cookie"] = cookie
-        print(cookie)
         if Referer is not None:
             headers["Referer"] = Referer
         return headers
