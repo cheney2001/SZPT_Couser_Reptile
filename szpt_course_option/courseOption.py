@@ -2,6 +2,7 @@ import collections
 import requests
 import time
 import io
+import os
 from lxml import etree
 from .verifyCode import VerifyCode
 from PIL import Image
@@ -49,20 +50,29 @@ class CourseOptions:
         self._session.auth = auth
         self._session.verify = False
         self._login_status = False
+        self._verify_img = None
 
     def refresh_status(self):
+        """
+        刷新登录页面状态
+        :return:
+        """
         result = self._session.get(self._login_url, verify=False)
         tree = etree.HTML(result.text)
         self._form['__VIEWSTATE'] = self._match_tag_value_by_name(tree, "input", "__VIEWSTATE")
+        self._verify_img = self._session.get(self._verify_url).content
 
     def _getVerifyCode(self):
-        pic_content = self._session.get(self._verify_url).content
-        img = VerifyCode.handlerImage(pic_content)
-        image = Image.open(io.BytesIO(img))
-        image.show()
+        self.refresh_status()
+        img = VerifyCode.handlerImage(self._verify_img)
         verify_code = VerifyCode.Verify_number_precision(img)
         print(verify_code)
-        return verify_code
+        if len(str(verify_code)) < 5:
+            print("验证码识别错误，尝试重新识别")
+            verify_code = self._getVerifyCode()
+            return verify_code
+        else:
+            return verify_code
 
     def login(self, username, password):
         """
@@ -88,16 +98,15 @@ class CourseOptions:
             if response.status_code == 200:
                 self._login_status = True
                 print("登陆成功")
-            else:
-                self._login_status = False
-                print("登陆失败")
+                self._saveLoginSuccessVerifyCode(self._verify_img, data['CodeNumberTextBox'])
+        if self._login_status is False:
+            print("登录失败")
 
     def getOptionsCourse(self):
         """
         获取选修课
         :return: dict
         """
-
         if self._login_status is False:
             return None
 
@@ -106,6 +115,12 @@ class CourseOptions:
         tree = etree.HTML(views.text)
         courses_list = self._getOptionsList(tree)
         return self._OptionsListToDict(courses_list)
+
+    def _saveLoginSuccessVerifyCode(self, img: bytes, verify_code):
+        if os.path.isdir("{}/{}".format(os.getcwd(), "verifyImg")) is False:
+            os.mkdir("{}/{}".format(os.getcwd(), "verifyImg"))
+        with open("{}/{}/{}.png".format(os.getcwd(), "verifyImg", verify_code), 'wb') as f:
+            f.write(img)
 
     def _getHeaders(self, Referer=None):
         """

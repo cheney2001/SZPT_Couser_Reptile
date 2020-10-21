@@ -55,6 +55,7 @@ class VerifyCode:
     def verify_number(image):
         """
         通过百度开放平台识别图片中数字
+        通用识别接口 每日50000次
         :param image: image bytes
         :return: verify str
         """
@@ -66,6 +67,12 @@ class VerifyCode:
 
     @staticmethod
     def Verify_number_precision(image: bytes):
+        """
+        通过百度开放平台识别图片中数字
+        通过数字识别接口
+        :param image:
+        :return:
+        """
         img = base64.b64encode(image)
         params = {"image": img}
         access_token = VerifyCode._getToken()
@@ -127,7 +134,7 @@ class VerifyCode:
         :return:
         """
         img = cv2.imdecode(np.frombuffer(img, np.uint8), cv2.IMREAD_COLOR)
-        ret, img = cv2.threshold(img, 235, 255, cv2.THRESH_BINARY)
+        ret, img = cv2.threshold(img, 240, 255, cv2.THRESH_BINARY)
         return img
 
     @staticmethod
@@ -223,8 +230,13 @@ class VerifyCode:
         return count
 
     @staticmethod
-    # k邻域降噪
     def _operate_img(img, k):
+        """
+        k邻域降噪
+        :param img:
+        :param k:
+        :return:
+        """
         w, h, s = img.shape
         # 从高度开始遍历
         for _w in range(w):
@@ -239,8 +251,14 @@ class VerifyCode:
         return img
 
     @staticmethod
-    # 四周置白色
     def _around_white(img, width_pre: float, height_pre: float):
+        """
+        四周置白色
+        :param img:
+        :param width_pre:
+        :param height_pre:
+        :return:
+        """
         w, h, s = img.shape
         for _w in range(w):
             for _h in range(h):
