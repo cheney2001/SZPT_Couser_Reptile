@@ -104,6 +104,35 @@ class ClassQuery:
         return [i for i in range(int(start), int(end) + 1)]
 
     @staticmethod
+    def _comp_bottom_table_rows(bottom_table_rows: list):
+        """
+        处理整周的表内行元素
+        :param bottom_table_rows:
+        :return:
+        """
+
+        def default(col: dict, idx: str, value):
+            if value == '' or value == ' ' or value is None:
+                pass
+            else:
+                col[idx] = value
+
+        example = {
+            "type": '',
+            "name": '',
+            "teacher_main": '',
+            "teacher_ass": '',
+            "location": '',
+            "day": '',
+            "remarks": '',
+        }
+        example_copy = example.copy()
+        for row in bottom_table_rows:
+            ths = row.find_elements_by_xpath('/td')
+            default(example, 'type', ths[0].text)
+            default(example,'name')
+
+    @staticmethod
     def _format_course_rows(top_table_rows: list, bottom_table_rows: list = None):
         """
         处理课表tr 行元素
@@ -141,7 +170,6 @@ class ClassQuery:
                         course_dict[classes]["week{}".format(str(week))].append(example)
             elif example["type"] == "整周":
                 pass
-
 
     @staticmethod
     def _matchCourse(driver: WebDriver):
