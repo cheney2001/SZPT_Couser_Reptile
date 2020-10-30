@@ -407,8 +407,10 @@ if __name__ == "__main__":
     college_class_dict = c._merge_college_class(colleges, class_list)
 
     result = c.getCourse({"人工智能学院": college_class_dict["人工智能学院"]})
-    with open('course.json', 'a', 'utf-8') as f:
-        json.dump(result, f, ensure_ascii=False)
+    with open('course.json', 'a') as f:
+        result = json.dumps(result, ensure_ascii=False)
+        f.write(result)
+        print("write course json to file success ")
     # c._driver.close()
     # task1 = college_class_dict.keys()
     # task1 = [k for k in task1]
