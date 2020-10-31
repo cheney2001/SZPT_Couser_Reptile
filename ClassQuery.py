@@ -5,7 +5,7 @@ from szpt_course.course import *
 import collections
 import json
 import re
-import threading
+from multiprocessing import Process, Queue, Pool
 
 tree = lambda: collections.defaultdict(tree)
 
@@ -33,6 +33,7 @@ class ClassQuery:
         self._ch_options.add_argument('--disable-gpu')
         self._ch_options.add_argument('--window-size=1366,768')
         self._driver = webdriver.Chrome(chrome_options=self._ch_options)
+        self._getIndex()
 
     def _getIndex(self):
         self._driver.get("http://jw.szpt.edu.cn/kb/WebKb/Kbcx.aspx")
@@ -77,6 +78,9 @@ class ClassQuery:
                 course["is_start"] = result['is_start']
                 # print(json.dumps(result, ensure_ascii=False))
         return course
+
+    def close(self):
+        self._driver.close()
 
     @staticmethod
     def _merge_college_class(college_list: list, class_dict: dict) -> dict:
@@ -355,79 +359,85 @@ class ClassQuery:
         return result
 
 
-ans = []
-
-
-class BrowsThread(threading.Thread):
+class BrowsProcess:
     """
-    开启多线程爬取课表
+    开启多进程爬取课表
     """
 
-    def __init__(self, thread_id: int, college_class_dict: dict):
-        super().__init__()
-        self.thread_id = thread_id
+    def __init__(self, college_class_dict: dict, process_num: int):
+        """
+        初始化多进程爬虫对象
+        :param college_class_dict: 学院-班级 json
+        :param process_num: 并行进程数
+        """
         self.college_class_dict = college_class_dict
-        self.brows = ClassQuery()
-        global ans
+        self.process_num = process_num
 
-    def run(self) -> None:
-        self.brows._getIndex()
-        result = self.brows.getCourse(self.college_class_dict)
-        ans.append(result)
-        print(json.dumps(result, ensure_ascii=False))
+    def getCourse(self):
+        pool = Pool(processes=self.process_num)
+        process_list = []
+        for key in self.college_class_dict.keys():
+            arg_dict = {key: self.college_class_dict[key]}
+            process_list.append(pool.apply_async(BrowsProcess._getCourse, (arg_dict, key)))
+        pool.close()
+        pool.join()
+        return [pro.get() for pro in process_list]
+
+    @staticmethod
+    def _getCourse(college_class_dict: dict, key):
+        brows = ClassQuery()
+        result = brows.getCourse(college_class_dict)
+        print("college : {} course get success".format(key))
+        brows.close()
+        result = json.dumps(result, ensure_ascii=False)
+        return (key, result)
 
 
-if __name__ == "__main__":
-    # c = ClassQuery()
-    # colleges = c._getCollegeList()
-    # # c._getClassList(colleges)
-    # class_list = c._getClassList(colleges)
-    # print(colleges)
-    # print(class_list)
-
-    # print(c)
-
+def test_Many_process():
     c = ClassQuery()
     c._getIndex()
-
-    # 单独班级测试
-    # c._driver.find_element_by_xpath(
-    #     '//select[@id="ddlAcademy"]/option[@value="{}"]'.format("06")).click()
-    # c._driver.find_element_by_xpath(
-    #     '//select[@id="ddlClass"]/option[@value="{}"]'.format("19060005")).click()
-    # c._driver.find_element_by_xpath('//input[@id="btnClass"]').click()
-    # tr = c._driver.find_elements_by_xpath('//table[@id="gvSchedule"]//tr')[1:]
-    # tr2 = c._driver.find_elements_by_xpath('//table[@id="gvScheduleAllWeek"]//tr')[1:]
-    # result = c._matchCourse(c._driver)
-    # print(json.dumps(result, ensure_ascii=False))
-    # 组合测试
     colleges = c._getCollegeList()
     c._getClassList(colleges)
     class_list = c._getClassList(colleges)
     college_class_dict = c._merge_college_class(colleges, class_list)
+    c._driver.close()
+    process = BrowsProcess(college_class_dict, 4)
+    result = process.getCourse()
+    for r in result:
+        key, course = r
+        with open("{}.json".format(key), 'w+') as f:
+            f.write(course)
 
-    result = c.getCourse({"人工智能学院": college_class_dict["人工智能学院"]})
+
+def test_single_class():
+    # 单独班级测试
+    c = ClassQuery()
+    c._getIndex()
+    c._driver.find_element_by_xpath(
+        '//select[@id="ddlAcademy"]/option[@value="{}"]'.format("06")).click()
+    c._driver.find_element_by_xpath(
+        '//select[@id="ddlClass"]/option[@value="{}"]'.format("19060005")).click()
+    c._driver.find_element_by_xpath('//input[@id="btnClass"]').click()
+    tr = c._driver.find_elements_by_xpath('//table[@id="gvSchedule"]//tr')[1:]
+    tr2 = c._driver.find_elements_by_xpath('//table[@id="gvScheduleAllWeek"]//tr')[1:]
+    result = c._matchCourse(c._driver)
+    print(json.dumps(result, ensure_ascii=False))
+
+
+def test_group():
+    # 组合测试
+    c = ClassQuery()
+    c._getIndex()
+    colleges = c._getCollegeList()
+    c._getClassList(colleges)
+    class_list = c._getClassList(colleges)
+    college_class_dict = c._merge_college_class(colleges, class_list)
+    result = c.getCourse(college_class_dict)
     with open('course.json', 'a') as f:
         result = json.dumps(result, ensure_ascii=False)
         f.write(result)
         print("write course json to file success ")
-    # c._driver.close()
-    # task1 = college_class_dict.keys()
-    # task1 = [k for k in task1]
-    # task1 = task1[:int(len(task1) / 2)]
-    # task1 = {key: college_class_dict[key] for key in task1}
-    # task2 = college_class_dict.keys()
-    # task2 = [k for k in task2]
-    # task2 = task2[int(len(task2) / 2):]
-    # task2 = {key: college_class_dict[key] for key in task2}
-    #
-    # thread1 = BrowsThread(1, task1)
-    # thread2 = BrowsThread(2, task2)
-    #
-    # thread1.start()
-    # thread2.start()
-    # thread1.join()
-    # thread2.join()
 
-    # result = c.getCourse(college_class_dict)
-    # print(json.dumps(result, ensure_ascii=False))
+
+if __name__ == "__main__":
+    test_Many_process()
