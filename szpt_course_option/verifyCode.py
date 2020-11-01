@@ -44,38 +44,22 @@ class node:
 
 
 class VerifyCode:
-    APP_ID = "22782455"
-    API_KEY = "3uCM2HafGbKma7DIQgAkIzVB"
-    Secret_Key = "XkrS0153qKY3PmETZN9KmbIQAeQgf9b0"
-
     REQUEST_URL = "https://aip.baidubce.com/rest/2.0/ocr/v1/numbers"
     GET_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
 
     @staticmethod
-    def verify_number(image):
-        """
-        通过百度开放平台识别图片中数字
-        通用识别接口 每日50000次
-        :param image: image bytes
-        :return: verify str
-        """
-        client = AipOcr(VerifyCode.APP_ID, VerifyCode.API_KEY, VerifyCode.Secret_Key)
-
-        result = client.basicGeneral(image)
-        print(result["words_result"])
-        return result["words_result"][0]['words']
-
-    @staticmethod
-    def Verify_number_precision(image: bytes):
+    def Verify_number_precision(image: bytes, API_KEY, Secret_Key):
         """
         通过百度开放平台识别图片中数字
         通过数字识别接口
         :param image:
+        :param API_KEY:
+
         :return:
         """
         img = base64.b64encode(image)
         params = {"image": img}
-        access_token = VerifyCode._getToken()
+        access_token = VerifyCode._getToken(API_KEY, Secret_Key)
         request_url = VerifyCode.REQUEST_URL + "?access_token=" + access_token
         headers = {'content-type': 'application/x-www-form-urlencoded'}
         response = requests.post(request_url, data=params, headers=headers)
@@ -108,10 +92,10 @@ class VerifyCode:
         return img_bytes
 
     @staticmethod
-    def _getToken():
+    def _getToken(API_KEY, Secret_Key):
         url = "{}?grant_type=client_credentials&client_id={}&client_secret={}".format(VerifyCode.GET_TOKEN_URL,
-                                                                                      VerifyCode.API_KEY,
-                                                                                      VerifyCode.Secret_Key)
+                                                                                      API_KEY,
+                                                                                      Secret_Key)
         response = requests.get(url)
         return response.json()["access_token"]
 

@@ -1,17 +1,36 @@
 import collections
 import requests
-import time
-import io
 import os
 from lxml import etree
 from .verifyCode import VerifyCode
-from PIL import Image
 
-base_url = "http://jwgl.szpt.edu.cn/szptjwbsII/RandSchedule.aspx"
 tree = lambda: collections.defaultdict(tree)
 
 
 class CourseOptions:
+    """
+    查询选修课表 , 用户登录验证码使用百度开放平台数字识别，
+
+    :return course json
+    {
+        "course": {
+            "week": {
+              "3": [
+                {
+                  "course": "课程名称",
+                  "day": 2(星期几),
+                  "teacher": "任教老师",
+                  "location": "上课地点",
+                  "remark": "课程备注",
+                  "node": 5(第几节)
+                },
+                ...
+                ]
+            }
+        }
+    }
+
+    """
     MAP_DAYS = {
         '星期一': 1,
         '星期二': 2,
@@ -23,11 +42,11 @@ class CourseOptions:
         '星期天': 7,
     }
 
-    def __init__(self, auth=None):
-        self._login_url = "http://jwgl.szpt.edu.cn/SzptJwBsII/Secure/login.aspx"
-        self._verify_url = "http://jwgl.szpt.edu.cn/SzptJwBsII/Secure/JpegImage.aspx"
-        self._course_view_url = "http://jwgl.szpt.edu.cn/szptjwbsII/RandSchedule.aspx"
-        self._ref_url = "http://jwgl.szpt.edu.cn/SzptJwBsII/default.aspx"
+    def __init__(self, API_KEY, Secret_Key, host_name, auth=None, save_verifyImg=True):
+        self._login_url = "http://{}/SzptJwBsII/Secure/login.aspx".format(host_name)
+        self._verify_url = "http://{}/SzptJwBsII/Secure/JpegImage.aspx".format(host_name)
+        self._course_view_url = "http://{}/szptjwbsII/RandSchedule.aspx".format(host_name)
+        self._ref_url = "http://{}/SzptJwBsII/default.aspx".format(host_name)
 
         self._form = {
             '__EVENTTARGET': '',
@@ -51,6 +70,9 @@ class CourseOptions:
         self._session.verify = False
         self._login_status = False
         self._verify_img = None
+        self._API_KEY = API_KEY
+        self._Secret_Key = Secret_Key
+        self._save_enable = save_verifyImg
 
     def refresh_status(self):
         """
@@ -65,7 +87,7 @@ class CourseOptions:
     def _getVerifyCode(self):
         self.refresh_status()
         img = VerifyCode.handlerImage(self._verify_img)
-        verify_code = VerifyCode.Verify_number_precision(img)
+        verify_code = VerifyCode.Verify_number_precision(img, API_KEY=self._API_KEY, Secret_Key=self._Secret_Key)
         print(verify_code)
         if len(str(verify_code)) < 5:
             print("验证码识别错误，尝试重新识别")
@@ -87,7 +109,6 @@ class CourseOptions:
         data['txtLogin'] = username
         data['txtPwd'] = password
         data['CodeNumberTextBox'] = self._getVerifyCode()
-        # print(data['CodeNumberTextBox'])
         headers = self._getHeaders(Referer=self._login_url)
         response = self._session.post(url=self._login_url, data=data, headers=headers, allow_redirects=False)
         if response.status_code == 302:
@@ -98,7 +119,8 @@ class CourseOptions:
             if response.status_code == 200:
                 self._login_status = True
                 print("登陆成功")
-                self._saveLoginSuccessVerifyCode(self._verify_img, data['CodeNumberTextBox'])
+                if self._save_enable:
+                    self._saveLoginSuccessVerifyCode(self._verify_img, data['CodeNumberTextBox'])
         if self._login_status is False:
             print("登录失败")
 
@@ -170,7 +192,7 @@ class CourseOptions:
                 "course": course[1],
                 "day": self.MAP_DAYS[course[2]],
                 "teacher": course[6],
-                "place": course[5],
+                "location": course[5],
                 "remark": course[8]
             }
             node_str = str(course[3]).replace("节", "")

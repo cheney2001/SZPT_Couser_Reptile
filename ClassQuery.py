@@ -1,11 +1,10 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.webdriver import WebDriver
-from szpt_course.course import *
 import collections
 import json
 import re
-from multiprocessing import Process, Queue, Pool
+from multiprocessing import Pool
 
 tree = lambda: collections.defaultdict(tree)
 
@@ -13,6 +12,30 @@ tree = lambda: collections.defaultdict(tree)
 class ClassQuery:
     """
     查询全校所有班级的课表
+    return course :
+        {
+            "semester": "2020-2021学年第一学期",
+            "date_time": "第8周",
+            "week_int": "星期五",
+            "is_start": "",
+            "学院名称":{
+                "班级简称":{
+                    "week1":[
+                            {
+                            "type": "课程类型",
+                            "name": "课程名称",
+                            "teacher_main": "主讲教师",
+                            "teacher_ass": "辅助教师",
+                            "location": "上课地点",
+                            "day": 2(星期几),
+                            "remarks": "备注",
+                            "node": 2 (第几节课)
+                        },
+                        ...
+                    ]
+                }
+            }
+        }
     """
 
     MAP_DAYS = {
@@ -26,17 +49,18 @@ class ClassQuery:
         '星期天': 7,
     }
 
-    def __init__(self):
+    def __init__(self, host_name: str):
         # 配置为无头模式
         self._ch_options = Options()
         self._ch_options.add_argument("--headless")
         self._ch_options.add_argument('--disable-gpu')
         self._ch_options.add_argument('--window-size=1366,768')
         self._driver = webdriver.Chrome(chrome_options=self._ch_options)
+        self.host_name = host_name
         self._getIndex()
 
     def _getIndex(self):
-        self._driver.get("http://jw.szpt.edu.cn/kb/WebKb/Kbcx.aspx")
+        self._driver.get("http://{}/kb/WebKb/Kbcx.aspx".format(self.host_name))
 
     def _getCollegeList(self):
         self._getIndex()
@@ -81,6 +105,21 @@ class ClassQuery:
 
     def close(self):
         self._driver.close()
+
+    @staticmethod
+    def get_college_class_dict(host_name: str) -> dict:
+        """
+        返回学院-班级的查询参数字典
+        :return: query dict
+        """
+        browser = ClassQuery(host_name)
+        browser._getIndex()
+        colleges = browser._getCollegeList()
+        browser._getClassList(colleges)
+        class_list = browser._getClassList(colleges)
+        college_class_dict = browser._merge_college_class(colleges, class_list)
+        browser._driver.close()
+        return college_class_dict
 
     @staticmethod
     def _merge_college_class(college_list: list, class_dict: dict) -> dict:
@@ -361,10 +400,35 @@ class ClassQuery:
 
 class BrowsProcess:
     """
-    开启多进程爬取课表
+    开启多进程爬取课表 , 再开启多线程时请勿过多( process_num < CPU 核心数)
+    course =
+        {
+            "semester": "2020-2021学年第一学期",
+            "date_time": "第8周",
+            "week_int": "星期五",
+            "is_start": "",
+            "学院名称":{
+                "班级简称":{
+                    "week1":[
+                            {
+                            "type": "课程类型",
+                            "name": "课程名称",
+                            "teacher_main": "主讲教师",
+                            "teacher_ass": "辅助教师",
+                            "location": "上课地点",
+                            "day": 2(星期几),
+                            "remarks": "备注",
+                            "node": 2 (第几节课)
+                        },
+                        ...
+                    ]
+                }
+            }
+        }
+    :return [('学院名称' , course), ...]
     """
 
-    def __init__(self, college_class_dict: dict, process_num: int):
+    def __init__(self, college_class_dict: dict, process_num: int, host_name: str):
         """
         初始化多进程爬虫对象
         :param college_class_dict: 学院-班级 json
@@ -372,20 +436,25 @@ class BrowsProcess:
         """
         self.college_class_dict = college_class_dict
         self.process_num = process_num
+        self.host_name = host_name
 
     def getCourse(self):
+        """
+        获取课表
+        :return: [("college_name" , course_json),...]
+        """
         pool = Pool(processes=self.process_num)
         process_list = []
         for key in self.college_class_dict.keys():
             arg_dict = {key: self.college_class_dict[key]}
-            process_list.append(pool.apply_async(BrowsProcess._getCourse, (arg_dict, key)))
+            process_list.append(pool.apply_async(BrowsProcess._getCourse, (arg_dict, key, self.host_name)))
         pool.close()
         pool.join()
         return [pro.get() for pro in process_list]
 
     @staticmethod
-    def _getCourse(college_class_dict: dict, key):
-        brows = ClassQuery()
+    def _getCourse(college_class_dict: dict, key, host_name):
+        brows = ClassQuery(host_name)
         result = brows.getCourse(college_class_dict)
         print("college : {} course get success".format(key))
         brows.close()
@@ -394,14 +463,12 @@ class BrowsProcess:
 
 
 def test_Many_process():
-    c = ClassQuery()
-    c._getIndex()
-    colleges = c._getCollegeList()
-    c._getClassList(colleges)
-    class_list = c._getClassList(colleges)
-    college_class_dict = c._merge_college_class(colleges, class_list)
-    c._driver.close()
-    process = BrowsProcess(college_class_dict, 4)
+    """
+    多线程测试
+    :return:
+    """
+    college_class_dict = ClassQuery.get_college_class_dict("jw.szpt.edu.cn")
+    process = BrowsProcess(college_class_dict, 4, "jw.szpt.edu.cn")
     result = process.getCourse()
     for r in result:
         key, course = r
@@ -410,8 +477,11 @@ def test_Many_process():
 
 
 def test_single_class():
-    # 单独班级测试
-    c = ClassQuery()
+    """
+    单班级测试
+    :return:
+    """
+    c = ClassQuery("jw.szpt.edu.cn")
     c._getIndex()
     c._driver.find_element_by_xpath(
         '//select[@id="ddlAcademy"]/option[@value="{}"]'.format("06")).click()
@@ -422,21 +492,6 @@ def test_single_class():
     tr2 = c._driver.find_elements_by_xpath('//table[@id="gvScheduleAllWeek"]//tr')[1:]
     result = c._matchCourse(c._driver)
     print(json.dumps(result, ensure_ascii=False))
-
-
-def test_group():
-    # 组合测试
-    c = ClassQuery()
-    c._getIndex()
-    colleges = c._getCollegeList()
-    c._getClassList(colleges)
-    class_list = c._getClassList(colleges)
-    college_class_dict = c._merge_college_class(colleges, class_list)
-    result = c.getCourse(college_class_dict)
-    with open('course_example.json', 'a') as f:
-        result = json.dumps(result, ensure_ascii=False)
-        f.write(result)
-        print("write course json to file success ")
 
 
 if __name__ == "__main__":
