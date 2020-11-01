@@ -433,7 +433,7 @@ def test_group():
     class_list = c._getClassList(colleges)
     college_class_dict = c._merge_college_class(colleges, class_list)
     result = c.getCourse(college_class_dict)
-    with open('course.json', 'a') as f:
+    with open('course_example.json', 'a') as f:
         result = json.dumps(result, ensure_ascii=False)
         f.write(result)
         print("write course json to file success ")
