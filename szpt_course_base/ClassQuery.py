@@ -440,7 +440,7 @@ class BrowsProcess:
 
     def getCourse(self):
         """
-        获取课表
+        获取self.college_class_dict 中所包含的学院以及班级的课表
         :return: [("college_name" , course_json),...]
         """
         pool = Pool(processes=self.process_num)
@@ -454,45 +454,16 @@ class BrowsProcess:
 
     @staticmethod
     def _getCourse(college_class_dict: dict, key, host_name):
+        """
+        返回课表Json 字串与学院名称元组
+        :param college_class_dict: college and classes dict
+        :param key: college name
+        :param host_name: course site host name
+        :return: (college_name , course_json_str)
+        """
         brows = ClassQuery(host_name)
         result = brows.getCourse(college_class_dict)
         print("college : {} course get success".format(key))
         brows.close()
         result = json.dumps(result, ensure_ascii=False)
         return (key, result)
-
-
-def test_Many_process():
-    """
-    多线程测试
-    :return:
-    """
-    college_class_dict = ClassQuery.get_college_class_dict("jw.szpt.edu.cn")
-    process = BrowsProcess(college_class_dict, 4, "jw.szpt.edu.cn")
-    result = process.getCourse()
-    for r in result:
-        key, course = r
-        with open("{}.json".format(key), 'w+') as f:
-            f.write(course)
-
-
-def test_single_class():
-    """
-    单班级测试
-    :return:
-    """
-    c = ClassQuery("jw.szpt.edu.cn")
-    c._getIndex()
-    c._driver.find_element_by_xpath(
-        '//select[@id="ddlAcademy"]/option[@value="{}"]'.format("06")).click()
-    c._driver.find_element_by_xpath(
-        '//select[@id="ddlClass"]/option[@value="{}"]'.format("19060005")).click()
-    c._driver.find_element_by_xpath('//input[@id="btnClass"]').click()
-    tr = c._driver.find_elements_by_xpath('//table[@id="gvSchedule"]//tr')[1:]
-    tr2 = c._driver.find_elements_by_xpath('//table[@id="gvScheduleAllWeek"]//tr')[1:]
-    result = c._matchCourse(c._driver)
-    print(json.dumps(result, ensure_ascii=False))
-
-
-if __name__ == "__main__":
-    test_Many_process()

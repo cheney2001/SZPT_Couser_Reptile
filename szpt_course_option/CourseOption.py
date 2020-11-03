@@ -42,7 +42,16 @@ class CourseOptions:
         '星期天': 7,
     }
 
-    def __init__(self, API_KEY, Secret_Key, host_name, auth=None, save_verifyImg=True):
+    def __init__(self, API_KEY, Secret_Key, host_name, auth=None, save_verify_img_path=None):
+        """
+        初始化一个选修课爬虫类，需要使用百度开放平台进行验证码识别，
+        可选 save_verify_img_path
+        :param API_KEY: 百度开放平台API_KEY
+        :param Secret_Key: 百度开放平台Secret_Key
+        :param host_name: 课表域名
+        :param auth: 认证方式
+        :param save_verify_img_path: (可选) 正确验证码保存路径
+        """
         self._login_url = "http://{}/SzptJwBsII/Secure/login.aspx".format(host_name)
         self._verify_url = "http://{}/SzptJwBsII/Secure/JpegImage.aspx".format(host_name)
         self._course_view_url = "http://{}/szptjwbsII/RandSchedule.aspx".format(host_name)
@@ -72,7 +81,7 @@ class CourseOptions:
         self._verify_img = None
         self._API_KEY = API_KEY
         self._Secret_Key = Secret_Key
-        self._save_enable = save_verifyImg
+        self._save_path = save_verify_img_path
 
     def refresh_status(self):
         """
@@ -85,6 +94,10 @@ class CourseOptions:
         self._verify_img = self._session.get(self._verify_url).content
 
     def _getVerifyCode(self):
+        """
+        验证码图片，并进行识别
+        :return: 正确验证码
+        """
         self.refresh_status()
         img = VerifyCode.handlerImage(self._verify_img)
         verify_code = VerifyCode.Verify_number_precision(img, API_KEY=self._API_KEY, Secret_Key=self._Secret_Key)
@@ -99,8 +112,8 @@ class CourseOptions:
     def login(self, username, password):
         """
         登陆教务系统
-        :param username:
-        :param password:
+        :param username: 账号
+        :param password: 密码
         :return:
         """
         self.refresh_status()
@@ -119,15 +132,15 @@ class CourseOptions:
             if response.status_code == 200:
                 self._login_status = True
                 print("登陆成功")
-                if self._save_enable:
-                    self._saveLoginSuccessVerifyCode(self._verify_img, data['CodeNumberTextBox'])
+                if self._save_path is not None:
+                    self._saveLoginSuccessVerifyCode(self._verify_img, data['CodeNumberTextBox'], self._save_path)
         if self._login_status is False:
             print("登录失败")
 
     def getOptionsCourse(self):
         """
         获取选修课
-        :return: dict
+        :return: course dict
         """
         if self._login_status is False:
             return None
@@ -138,16 +151,23 @@ class CourseOptions:
         courses_list = self._getOptionsList(tree)
         return self._OptionsListToDict(courses_list)
 
-    def _saveLoginSuccessVerifyCode(self, img: bytes, verify_code):
-        if os.path.isdir("{}/{}".format(os.getcwd(), "verifyImg")) is False:
-            os.mkdir("{}/{}".format(os.getcwd(), "verifyImg"))
-        with open("{}/{}/{}.png".format(os.getcwd(), "verifyImg", verify_code), 'wb') as f:
+    def _saveLoginSuccessVerifyCode(self, img: bytes, verify_code, save_path):
+        """
+        保存验证码图片以及验证码
+        :param img: image bytes
+        :param verify_code: success verify code
+        :param save_path: save verify image path
+        :return:
+        """
+        if os.path.isdir("{}/{}".format(save_path, "verifyImg")) is False:
+            os.mkdir("{}/{}".format(save_path, "verifyImg"))
+        with open("{}/{}/{}.png".format(save_path, "verifyImg", verify_code), 'wb') as f:
             f.write(img)
 
     def _getHeaders(self, Referer=None):
         """
         获取session cookie并加入headers中
-        :return:
+        :return: headers
         """
 
         headers = self._headers.copy()
