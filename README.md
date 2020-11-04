@@ -1,4 +1,4 @@
-#szpt-course-reptile
+# szpt-course-reptile
 
 根据学院班级批量查询深职院全校课表模块，可单独查询选修课表。
 
