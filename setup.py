@@ -1,11 +1,16 @@
 import setuptools
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setuptools.setup(
     name="szpt_course_reptile",
-    version="0.0.4",
+    version="0.0.5",
     author="Cheney",
     author_email="cheney2001@qq.com",
     description="use for get szpt course and option course",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url="https://github.com/pypa/sampleproject",
     packages=setuptools.find_packages(),
     classifiers=[
