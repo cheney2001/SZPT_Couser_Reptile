@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="szpt_course_reptile",
-    version="0.0.1",
+    version="0.0.4",
     author="Cheney",
     author_email="cheney2001@qq.com",
     description="use for get szpt course and option course",

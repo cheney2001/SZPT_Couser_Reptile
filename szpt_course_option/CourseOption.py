@@ -1,6 +1,7 @@
 import collections
 import requests
 import os
+import time
 from lxml import etree
 from .verifyCode import VerifyCode
 
@@ -14,19 +15,19 @@ class CourseOptions:
     :return course json
     {
         "course": {
-            "week": {
-              "3": [
-                {
-                  "course": "课程名称",
-                  "day": 2(星期几),
-                  "teacher": "任教老师",
-                  "location": "上课地点",
-                  "remark": "课程备注",
-                  "node": 5(第几节)
-                },
-                ...
-                ]
-            }
+            "week3": [
+                    {
+                      "course": "课程名称",
+                      "day": 2(星期几),
+                      "teacher": "任教老师",
+                      "location": "上课地点",
+                      "remark": "课程备注",
+                      "node": 5(第几节)
+                    },
+                    ...
+            ],
+            "week4":[...],
+            ...
         }
     }
 
@@ -104,6 +105,7 @@ class CourseOptions:
         print(verify_code)
         if len(str(verify_code)) < 5:
             print("验证码识别错误，尝试重新识别")
+            time.sleep(1)
             verify_code = self._getVerifyCode()
             return verify_code
         else:
@@ -202,9 +204,7 @@ class CourseOptions:
         """
         re_dict = tree()
         re_dict.update({
-            "course": {
-                "week": tree()
-            }
+            "course": {}
         })
 
         for course in course_list:
@@ -228,11 +228,11 @@ class CourseOptions:
                 week_num.extend([i for i in range(int(num[0]), int(num[1]) + 1)])
 
             for w in week_num:
-                re_dict["course"]["week"][str(w)] = []
+                re_dict["course"]["week{}".format(w)] = []
                 for n in node:
                     base = base_dict.copy()
                     base["node"] = n
-                    re_dict["course"]["week"][str(w)].append(base)
+                    re_dict["course"]["week{}".format(w)].append(base)
 
         return re_dict
 

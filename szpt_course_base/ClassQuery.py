@@ -298,7 +298,7 @@ class ClassQuery:
             ths = row.find_elements_by_xpath('td')
             # 过滤掉非一般课程：如 （单元，整周）
             type = str(ths[0].text)
-            if type != ' ':
+            if type != ' ' and type != '拓展':
                 continue
             # 周次
             course_week = ths[5].text
